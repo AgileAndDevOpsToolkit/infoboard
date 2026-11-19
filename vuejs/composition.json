@@ -1,0 +1,130 @@
+{
+  "format": "infoboard",
+  "version": 1,
+  "title": "",
+  "background": "#ffffff",
+  "exportedAt": "2026-11-19T18:09:19.337Z",
+  "bounds": {
+    "x": -3796.6,
+    "y": -1355.5,
+    "w": 1893,
+    "h": 3795.7
+  },
+  "elements": [
+    {
+      "id": "iuubmd2qbu3",
+      "type": "image",
+      "x": -2908.8,
+      "y": 795.6,
+      "w": 800,
+      "h": 450,
+      "src": "images/les-evenements-en-vuejs.png",
+      "alt": "Les événements en VueJS"
+    },
+    {
+      "id": "iuvj6yrne6p",
+      "type": "image",
+      "x": -3796.6,
+      "y": 1990.2,
+      "w": 800,
+      "h": 450,
+      "src": "images/infographie-json.png",
+      "alt": "Infographie JSON"
+    },
+    {
+      "id": "iuw4ht5vzu8",
+      "type": "image",
+      "x": -3796.6,
+      "y": 1385.8,
+      "w": 800,
+      "h": 451,
+      "src": "images/fleche-violette-vers-package-lock-json-2.png",
+      "alt": "Flèche violette vers package lock.json 2"
+    },
+    {
+      "id": "iuxalkl7srl",
+      "type": "image",
+      "x": -3796.6,
+      "y": 795.6,
+      "w": 800,
+      "h": 450,
+      "src": "images/actions-et-evenements-dans-vue-js.png",
+      "alt": "Actions et événements dans Vue.js"
+    },
+    {
+      "id": "iuy4kizxxye",
+      "type": "image",
+      "x": -3796.6,
+      "y": -552.7,
+      "w": 800,
+      "h": 450,
+      "src": "images/le-dom-html-structure-et-interactivite.png",
+      "alt": "Le DOM   HTML, structure et interactivité"
+    },
+    {
+      "id": "iuyk3sos2gs",
+      "type": "image",
+      "x": -3796.6,
+      "y": 108.8,
+      "w": 800,
+      "h": 450,
+      "src": "images/directive-v-for-du-code-au-dom.png",
+      "alt": "Directive v for   du code au DOM"
+    },
+    {
+      "id": "iuzui3fl8gr",
+      "type": "image",
+      "x": -2946.6,
+      "y": -1244.5,
+      "w": 800,
+      "h": 450,
+      "src": "images/chronologie-des-frameworks-front-end.png",
+      "alt": "Chronologie des frameworks front end"
+    },
+    {
+      "id": "iuzui37kyja",
+      "type": "image",
+      "x": -3796.6,
+      "y": -1244.5,
+      "w": 800,
+      "h": 450,
+      "src": "images/frise-chronologique-les-debuts-du-web.png",
+      "alt": "Frise chronologique Les débuts du web"
+    },
+    {
+      "id": "tv0f1526j7d",
+      "type": "text",
+      "x": -3796.6,
+      "y": -1355.5,
+      "w": 850,
+      "h": 111,
+      "text": "Histoire du dev front",
+      "fontSize": 84,
+      "color": "#1c2230",
+      "bold": true
+    },
+    {
+      "id": "tv1ek8n7dzy",
+      "type": "text",
+      "x": -3796.6,
+      "y": -663.7,
+      "w": 1893,
+      "h": 111,
+      "text": "Quelques principes fondamentaux du dev front",
+      "fontSize": 84,
+      "color": "#1c2230",
+      "bold": true
+    },
+    {
+      "id": "lv68l7dycl5",
+      "type": "link",
+      "x": -2742.1,
+      "y": -437.8,
+      "w": 391,
+      "h": 174,
+      "url": "https://google.fr",
+      "title": "Google",
+      "fontSize": 49
+    }
+  ]
+}

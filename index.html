@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 28 28%27%3E%3Crect width=%2728%27 height=%2728%27 rx=%278%27 fill=%27%230f8a6a%27/%3E%3Crect x=%276%27 y=%276%27 width=%277%27 height=%2710.5%27 rx=%271.6%27 fill=%27%23fff%27/%3E%3Crect x=%2715%27 y=%276%27 width=%277%27 height=%276%27 rx=%271.6%27 fill=%27%23fff%27 opacity=%27.72%27/%3E%3Crect x=%2715%27 y=%2714%27 width=%277%27 height=%278%27 rx=%271.6%27 fill=%27%23fff%27/%3E%3Crect x=%276%27 y=%2718.5%27 width=%277%27 height=%273.5%27 rx=%271.5%27 fill=%27%23fff%27 opacity=%27.72%27/%3E%3C/svg%3E">
+<title>Infoboard</title>
+<!--
+  INFOBOARD · LECTEUR (lecture seule)
+  Application 100 % front, en un seul fichier. Aucune dépendance externe.
+
+  ► Choix de la composition : par l'adresse de la page (paramètre c), au choix
+      infoboard-lecteur.html?c=vuejs/             un dossier (composition.json + images/)
+      infoboard-lecteur.html?c=vuejs.zip          une archive .zip, n'importe quel nom
+      infoboard-lecteur.html?c=cours/vuejs.json   un fichier .json, n'importe quel nom
+    La constante COMPOSITION_PATH (début du script, vide par défaut) l'emporte sur l'adresse.
+
+  ► Ouverte en double-clic (file://), la page ne peut lire qu'un dossier contenant
+    composition.js (inclus dans le pack exporté par l'éditeur). Sur un serveur web
+    (GitHub Pages…), les trois formes fonctionnent.
+
+  Format de composition.json (version 1) :
+  {
+    "format": "infoboard", "version": 1,
+    "title": "Vue.js — les bases",
+    "background": "#ffffff",
+    "elements": [                       ← ordre = superposition (le dernier est au-dessus)
+      { "type": "image", "x": 0, "y": 0, "w": 800, "h": 1130, "src": "images/composants.png", "alt": "composants" },
+      { "type": "text",  "x": 0, "y": -90, "text": "Les composants", "fontSize": 48, "color": "#1c2230", "bold": true },
+      { "type": "link",  "x": 0, "y": 1180, "url": "fichiers/composants.pdf", "title": "Télécharger le PDF", "fontSize": 18 }
+    ]
+  }
+  - "src" et les liens relatifs sont résolus depuis le dossier de composition.json.
+  - "src" peut aussi être une URL http(s) ou une data: URL (export .json autonome de l'éditeur).
+-->
+<style>
+:root{
+  --ink:#1c2230; --ink-2:#5d6577; --ink-3:#98a0af;
+  --line:#e4e7ec; --hover:#f1f3f6; --press:#e7eaef; --panel:#fff;
+  --accent:#0f8a6a; --accent-2:#0b6f55; --accent-soft:#e2f3ec;
+  --danger:#d23b3b; --board:#ffffff;
+  --shadow:0 1px 2px rgba(28,34,48,.06),0 6px 20px rgba(28,34,48,.08);
+  --shadow-lg:0 2px 6px rgba(28,34,48,.08),0 22px 56px rgba(28,34,48,.18);
+  --font:"Inter","Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--board);color:var(--ink);font:14px/1.45 var(--font);-webkit-font-smoothing:antialiased}
+body{user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit}
+svg{display:block}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+#viewport{position:fixed;inset:0;overflow:hidden;touch-action:none;background:var(--board);cursor:grab}
+#viewport.grabbing{cursor:grabbing}
+#world{position:absolute;left:0;top:0;transform-origin:0 0;--s:1;opacity:0;transition:opacity .35s ease-out}
+#world.ready{opacity:1}
+#world.moving{will-change:transform}
+
+/* Éléments — styles partagés à l'identique avec l'éditeur */
+.el{position:absolute;left:0;top:0}
+.el-image img{display:block;width:100%;height:100%;pointer-events:none;-webkit-user-drag:none;user-select:none}
+.el-image.missing{background:repeating-linear-gradient(45deg,#f2f4f7 0 14px,#e8ebf0 14px 28px);outline:1px dashed #c3c9d3}
+.el-image.missing img{visibility:hidden}
+.el-text{white-space:pre;line-height:1.2;padding:.06em .14em;min-width:.6em;outline:none;overflow-wrap:normal}
+.el-link{display:flex;align-items:center;gap:.7em;padding:.6em 1.05em .6em .6em;max-width:26em;background:#fff;border:1px solid var(--line);
+  border-radius:.8em;box-shadow:0 .06em .16em rgba(28,34,48,.06),0 .35em 1.1em rgba(28,34,48,.07);color:var(--ink);text-decoration:none;line-height:1.25}
+.el-link .ico{flex:none;display:grid;place-items:center;width:2.3em;height:2.3em;border-radius:.6em;background:var(--accent-soft);color:var(--accent)}
+.el-link .ico svg{width:1.25em;height:1.25em}
+.el-link .txt{display:flex;flex-direction:column;min-width:0}
+.el-link .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.el-link .u{font-size:.74em;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:.18em}
+
+/* Spécifique au lecteur */
+.el-image{cursor:zoom-in}
+.el-image:not(.ok):not(.missing){background:#eef0f3}
+.el-image.focused{cursor:zoom-out}
+.el-link{cursor:pointer}
+.el-link:hover{border-color:var(--accent)}
+.el-link:hover .ico{background:var(--accent);color:#fff}
+.el:focus,.el:focus-visible{outline:none}
+body.kbd .el:focus-visible{outline:calc(3px / var(--s)) solid var(--accent);outline-offset:calc(4px / var(--s))}
+
+/* Panneaux */
+.panel{position:fixed;z-index:10;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+.ibtn{display:inline-grid;place-items:center;width:38px;height:38px;padding:0;border:0;border-radius:10px;background:transparent;cursor:pointer;color:var(--ink)}
+.ibtn svg{width:20px;height:20px}
+.ibtn:hover{background:var(--hover)}
+.ibtn:active{background:var(--press)}
+.ibtn:disabled{opacity:.32;cursor:default;background:transparent}
+.btn{flex:none;display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 13px;border:0;border-radius:10px;background:transparent;font-weight:560;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--hover)}
+.btn svg{width:18px;height:18px}
+.titlebar{top:14px;left:14px;max-width:calc(100vw - 28px);display:flex;align-items:center;gap:10px;height:50px;padding:0 18px 0 11px}
+.titlebar h1{margin:0;font-size:15px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zoombar{right:14px;bottom:14px;display:flex;align-items:center;gap:2px;padding:4px}
+.zoombar .vsep{width:1px;height:22px;margin:0 3px;background:var(--line)}
+.zoom-label{min-width:58px;height:38px;border:0;border-radius:10px;background:transparent;font-weight:600;font-size:13px;font-variant-numeric:tabular-nums;cursor:pointer;white-space:nowrap}
+.zoom-label:hover{background:var(--hover)}
+.nav{left:50%;bottom:14px;transform:translateX(-50%);display:flex;align-items:center;gap:2px;padding:4px}
+.nav .pos{min-width:62px;text-align:center;font-weight:600;font-size:13px;font-variant-numeric:tabular-nums}
+.nav .vsep{width:1px;height:22px;margin:0 3px;background:var(--line)}
+
+.hint{position:fixed;left:50%;bottom:76px;z-index:20;transform:translateX(-50%);max-width:calc(100vw - 32px);padding:10px 16px;border-radius:10px;
+  background:var(--ink);color:#fff;font-size:13.5px;text-align:center;box-shadow:var(--shadow-lg);transition:opacity .4s;pointer-events:none}
+.hint.out{opacity:0}
+
+.center-card{position:fixed;left:50%;top:50%;z-index:30;transform:translate(-50%,-50%);width:min(520px,calc(100vw - 32px));padding:26px 26px 22px;
+  background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-lg)}
+.center-card{max-height:calc(100vh - 32px);overflow:auto}
+.center-card h2{margin:0 0 8px;font-size:17px}
+.center-card pre.tree{margin:8px 0 12px;padding:10px 14px;border-radius:10px;background:var(--hover);font:12.5px/1.6 var(--mono);color:var(--ink-2);white-space:pre;user-select:text}
+.local-open{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.local-open span{color:var(--ink-3);font-size:13px}
+.center-card .detail{margin:12px 0 0;color:var(--ink-3);font-size:12.5px}
+.center-card .msg{margin:10px 0 0;color:var(--danger);font-size:13px}
+#error.drop-on{outline:2.5px dashed var(--accent);outline-offset:6px}
+.go{display:flex;gap:8px;margin:16px 0 0}
+.go input{flex:1;min-width:0;height:40px;padding:0 12px;border:1px solid #d9dde4;border-radius:10px;font:inherit;color:var(--ink);user-select:text;-webkit-user-select:text}
+.go input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.btn.outline{background:#fff;box-shadow:inset 0 0 0 1px #d9dde4}
+.btn.outline:hover{background:var(--hover)}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-2)}
+.center-card p{margin:0 0 10px;color:var(--ink-2)}
+.center-card code{font:12.5px var(--mono);padding:2px 6px;border-radius:6px;background:var(--hover);color:var(--ink);word-break:break-all;user-select:text}
+.center-card ul{margin:8px 0 0;padding-left:18px;color:var(--ink-2)}
+.center-card li{margin:5px 0}
+.loader{display:flex;align-items:center;gap:12px;width:auto;padding:16px 20px;color:var(--ink-2)}
+.spin{width:20px;height:20px;border-radius:50%;border:2.5px solid var(--accent-soft);border-top-color:var(--accent);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.tip{position:fixed;z-index:70;padding:6px 9px;border-radius:7px;background:var(--ink);color:#fff;font-size:12.5px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s}
+.tip.on{opacity:1}
+.tip kbd{margin-left:7px;padding:0 5px;border-radius:5px;background:rgba(255,255,255,.16);font:12px/1.5 var(--font)}
+
+@media (max-width:560px){
+  .nav{bottom:70px}
+  .hint{bottom:128px}
+  .titlebar{height:44px;right:14px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="viewport" aria-label="Composition">
+  <div id="world"></div>
+</div>
+
+<header class="panel titlebar" id="titlebar" hidden>
+  <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true" style="flex:none">
+    <rect width="28" height="28" rx="8" fill="#0f8a6a"/>
+    <rect x="6" y="6" width="7" height="10.5" rx="1.6" fill="#fff"/>
+    <rect x="15" y="6" width="7" height="6" rx="1.6" fill="#fff" opacity=".72"/>
+    <rect x="15" y="14" width="7" height="8" rx="1.6" fill="#fff"/>
+    <rect x="6" y="18.5" width="7" height="3.5" rx="1.5" fill="#fff" opacity=".72"/>
+  </svg>
+  <h1 id="doc-title"></h1>
+</header>
+
+<div class="panel zoombar" id="zoombar" hidden>
+  <button class="ibtn" data-action="zoom-out" aria-label="Dézoomer" data-tip="Dézoomer" data-key="−"><span data-icon="minus"></span></button>
+  <button class="zoom-label" id="zoom-label" data-action="zoom-100" data-tip="Revenir à 100 %" data-key="0">100&nbsp;%</button>
+  <button class="ibtn" data-action="zoom-in" aria-label="Zoomer" data-tip="Zoomer" data-key="+"><span data-icon="plus"></span></button>
+  <div class="vsep"></div>
+  <button class="ibtn" data-action="fit" aria-label="Vue d'ensemble" data-tip="Vue d'ensemble" data-key="F"><span data-icon="fit"></span></button>
+  <button class="ibtn" id="fs-btn" data-action="fullscreen" aria-label="Plein écran" data-tip="Plein écran" hidden><span data-icon="expand"></span></button>
+</div>
+
+<div class="panel nav" id="nav" hidden>
+  <button class="ibtn" data-action="prev" aria-label="Infographie précédente" data-tip="Précédente" data-key="←"><span data-icon="left"></span></button>
+  <span class="pos" id="nav-pos" aria-live="polite"></span>
+  <button class="ibtn" data-action="next" aria-label="Infographie suivante" data-tip="Suivante" data-key="→"><span data-icon="right"></span></button>
+  <div class="vsep"></div>
+  <button class="btn" data-action="fit" data-tip="Revenir à la vue d'ensemble" data-key="Échap"><span data-icon="fit"></span>Vue d'ensemble</button>
+</div>
+
+<div class="center-card loader" id="loader"><span class="spin"></span><span id="loader-text">Chargement de la composition…</span></div>
+<div class="center-card" id="error" hidden role="alert"></div>
+<div class="hint" id="hint" hidden></div>
+<input type="file" id="pick" accept=".zip,.json,application/zip,application/json" hidden>
+<div class="tip" id="tip" role="tooltip"></div>
+<noscript><div class="center-card"><h2>JavaScript est désactivé</h2><p>Activez JavaScript pour afficher cette composition.</p></div></noscript>
+
+<script>
+/* =========================================================================
+   CONFIGURATION
+   -------------------------------------------------------------------------
+   Par défaut, la composition est indiquée dans l'adresse de la page :
+     infoboard-lecteur.html?c=vuejs/             un dossier (composition.json + images/)
+     infoboard-lecteur.html?c=vuejs.zip          une archive .zip (n'importe quel nom)
+     infoboard-lecteur.html?c=cours/vuejs.json   un fichier .json (n'importe quel nom)
+
+   Pour figer une composition, renseignez COMPOSITION_PATH (mêmes formes,
+   chemin relatif à cette page ou adresse complète) : elle est alors utilisée
+   quelle que soit l'adresse. Exemple : const COMPOSITION_PATH = 'vuejs/';
+   ========================================================================= */
+const COMPOSITION_PATH = '';
+/* ========================================================================= */
+
+(() => {
+'use strict';
+
+const $ = (s, r = document) => r.querySelector(s);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const coarse = matchMedia('(pointer: coarse)').matches;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const ICONS = {
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  minus: '<path d="M5 12h14"/>',
+  fit: '<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7.5" y="7.5" width="9" height="9" rx="1.5"/>',
+  expand: '<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>',
+  shrink: '<path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3"/>',
+  left: '<path d="m15 18-6-6 6-6"/>',
+  right: '<path d="m9 18 6-6-6-6"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  external: '<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'
+};
+const icon = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ''}</svg>`;
+document.querySelectorAll('[data-icon]').forEach(n => { n.outerHTML = icon(n.dataset.icon); });
+
+const FILE_EXT = /\.(pdf|zip|rar|7z|tar|gz|tgz|docx?|pptx?|xlsx?|odt|odp|ods|csv|txt|md|json|js|ts|vue|css|png|jpe?g|gif|svg|webp|mp4|webm|mp3|epub)$/i;
+const MIN_S = 0.03, MAX_S = 6;
+
+const viewport = $('#viewport'), world = $('#world');
+const cam = { x: 0, y: 0, s: 1 };
+let items = [];        // { type, x, y, w, h, node, alt }
+let order = [];        // images dans l'ordre de lecture
+let focusIdx = -1;
+let autoFit = true;    // la vue suit-elle encore le cadrage automatique ?
+let baseUrl = null;    // URL de composition.json (base des chemins relatifs)
+
+/* =========================================================================
+   Chargement : dossier, fichier .json ou archive .zip
+   ========================================================================= */
+const safeDecode = s => { try { return decodeURIComponent(s); } catch { return s; } };
+const MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', avif: 'image/avif', bmp: 'image/bmp',
+  pdf: 'application/pdf', zip: 'application/zip', json: 'application/json', txt: 'text/plain', md: 'text/plain', csv: 'text/csv', mp4: 'video/mp4', mp3: 'audio/mpeg' };
+const extOf = p => ((String(p).match(/\.([a-z0-9]+)$/i) || [])[1] || '').toLowerCase();
+let zipFiles = null, zipBase = '';   // contenu d'une archive .zip : chemin -> octets
+const blobUrls = new Map();
+const setLoader = t => { $('#loader-text').textContent = t; };
+
+/* Composition demandée : la constante du fichier l'emporte, sinon ?c= */
+function requested() {
+  const fixed = String(COMPOSITION_PATH || '').trim();
+  if (fixed) return { path: fixed, from: 'file' };
+  const q = (new URLSearchParams(location.search).get('c') || '').trim();
+  return q ? { path: q, from: 'url' } : null;
+}
+/* Dans l'adresse, seuls les chemins de ce site sont acceptés (pas de protocole, pas d'autre domaine) */
+function isSafeParam(p) {
+  if (/[\\:]/.test(p) || p.startsWith('//')) return false;
+  try { const u = new URL(p, location.href); return u.origin === location.origin && u.protocol === location.protocol; } catch { return false; }
+}
+function kindOf(p) {
+  const clean = p.split(/[?#]/)[0];
+  return /\.zip$/i.test(clean) ? 'zip' : /\.json$/i.test(clean) ? 'json' : 'dir';
+}
+async function fetchBytes(url, label) {
+  const r = await fetch(url, { cache: 'no-cache' });
+  if (!r.ok) throw new Error(r.status === 404 ? 'fichier introuvable (404)' : `le serveur répond ${r.status}`);
+  const total = +r.headers.get('content-length') || 0;
+  if (!r.body || !total) return new Uint8Array(await r.arrayBuffer());
+  const reader = r.body.getReader(), chunks = [];
+  let got = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value); got += value.length;
+    setLoader(`${label} ${Math.min(100, Math.round(got / total * 100))} %`);
+  }
+  const out = new Uint8Array(got);
+  let o = 0;
+  for (const c of chunks) { out.set(c, o); o += c.length; }
+  return out;
+}
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    try { delete window.INFOBOARD_COMPOSITION; } catch { window.INFOBOARD_COMPOSITION = undefined; }
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = () => { const d = window.INFOBOARD_COMPOSITION; s.remove(); d ? res(d) : rej(new Error('le fichier ne définit pas INFOBOARD_COMPOSITION')); };
+    s.onerror = () => { s.remove(); rej(new Error('fichier introuvable')); };
+    document.head.appendChild(s);
+  });
+}
+function joinPath(base, rel) {
+  const out = [];
+  for (const p of (base + rel).split('/')) { if (p === '..') out.pop(); else if (p && p !== '.') out.push(p); }
+  return out.join('/');
+}
+async function readZip(buf) {
+  const u8 = new Uint8Array(buf), dv = new DataView(buf), dec = new TextDecoder(), out = new Map();
+  let eocd = -1;
+  for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error('archive .zip illisible');
+  const count = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  for (let i = 0; i < count; i++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) throw new Error('archive .zip endommagée');
+    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true);
+    const nlen = dv.getUint16(p + 28, true), xlen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true), lho = dv.getUint32(p + 42, true);
+    const name = dec.decode(u8.subarray(p + 46, p + 46 + nlen));
+    p += 46 + nlen + xlen + clen;
+    if (name.endsWith('/') || name.startsWith('__MACOSX/')) continue;
+    const start = lho + 30 + dv.getUint16(lho + 26, true) + dv.getUint16(lho + 28, true);
+    const raw = u8.subarray(start, start + csize);
+    if (method === 0) out.set(name, raw.slice());
+    else if (method === 8) {
+      if (typeof DecompressionStream === 'undefined') throw new Error('ce navigateur ne sait pas décompresser ce .zip');
+      const stream = new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      out.set(name, new Uint8Array(await new Response(stream).arrayBuffer()));
+    }
+  }
+  return out;
+}
+/* Archive : composition.json à la racine ou dans un sous-dossier (le moins profond) */
+async function docFromZip(buf) {
+  const entries = await readZip(buf);
+  const key = [...entries.keys()].filter(k => /(^|\/)composition\.json$/i.test(k)).sort((a, b) => a.length - b.length)[0];
+  if (!key) throw new Error('aucun fichier composition.json dans cette archive');
+  blobUrls.forEach(u => URL.revokeObjectURL(u)); blobUrls.clear();
+  zipFiles = entries;
+  zipBase = key.slice(0, key.lastIndexOf('/') + 1);
+  return JSON.parse(new TextDecoder().decode(entries.get(key)));
+}
+function fromZip(s) {
+  if (!zipFiles) return null;
+  const k = [joinPath(zipBase, s), joinPath(zipBase, safeDecode(s))].find(x => zipFiles.has(x));
+  if (!k) return null;
+  if (!blobUrls.has(k)) blobUrls.set(k, URL.createObjectURL(new Blob([zipFiles.get(k)], { type: MIME[extOf(k)] || 'application/octet-stream' })));
+  return blobUrls.get(k);
+}
+
+async function load() {
+  const req = requested();
+  if (!req) { showWelcome(); return; }
+  if (req.from === 'url' && !isSafeParam(req.path)) {
+    showError(req, null, 'dir', new Error('l\'adresse ne peut désigner qu\'un dossier ou un fichier de ce site'));
+    return;
+  }
+  const kind = kindOf(req.path), local = location.protocol === 'file:';
+  let url;
+  try { url = new URL(kind === 'dir' ? req.path.replace(/\/?$/, '/') + 'composition.json' : req.path, location.href); }
+  catch { showError(req, null, kind, new Error('chemin invalide')); return; }
+  let doc = null, err = null;
+  try {
+    if (kind === 'zip') {
+      if (local) throw new Error('une page ouverte en double-clic ne peut pas lire un .zip');
+      setLoader('Chargement de l\'archive…');
+      const bytes = await fetchBytes(url.href, 'Chargement de l\'archive…');
+      setLoader('Ouverture de l\'archive…');
+      doc = await docFromZip(bytes.buffer);
+    } else if (!local) {
+      doc = JSON.parse(new TextDecoder().decode(await fetchBytes(url.href, 'Chargement de la composition…')));
+    }
+  } catch (e) { err = e instanceof SyntaxError ? new Error('JSON illisible') : e; }
+  if (!doc && kind !== 'zip' && !(err && err.message === 'JSON illisible')) {
+    // Repli : le .js voisin (composition.js du pack), lisible même en double-clic
+    try { doc = await loadScript(url.href.replace(/\.json(?=$|[?#])/i, '.js')); err = null; }
+    catch (e) { err = err || e; }
+  }
+  if (doc && !Array.isArray(doc.elements)) { doc = null; err = new Error('ce fichier n\'est pas une composition Infoboard'); }
+  if (!doc) { showError(req, url, kind, err); return; }
+  baseUrl = url;
+  build(doc);
+}
+
+/* ----- Écrans d'accueil et d'erreur ----- */
+const localOpenHtml = `
+  <div class="local-open">
+    <button type="button" class="btn outline" id="pick-btn">Choisir un .zip ou un .json…</button>
+    <span>ou déposez-le ici : aperçu sur cet ordinateur uniquement</span>
+  </div>
+  <p class="msg" id="local-msg" hidden></p>`;
+function showCard(html) {
+  $('#loader').hidden = true;
+  const box = $('#error');
+  box.innerHTML = html;
+  box.hidden = false;
+  const pick = $('#pick-btn');
+  if (pick) pick.addEventListener('click', () => $('#pick').click());
+}
+function showWelcome() {
+  const page = safeDecode(location.pathname.split('/').pop() || 'index.html');
+  const local = location.protocol === 'file:';
+  showCard(`
+    <h2>Quelle composition afficher ?</h2>
+    <p>Indiquez-la dans l'adresse de cette page, avec le paramètre <code>c</code> :</p>
+    <pre class="tree">${esc(page)}?c=vuejs/            un dossier\n${esc(page)}?c=vuejs.zip         une archive .zip\n${esc(page)}?c=cours/vuejs.json  un fichier .json</pre>
+    ${local ? '<p>Page ouverte en double-clic : seul un <b>dossier</b> décompressé (avec composition.js) peut être lu.</p>' : ''}
+    <form class="go" id="go">
+      <input id="go-path" placeholder="vuejs/, vuejs.zip ou cours/vuejs.json" autocomplete="off" spellcheck="false" aria-label="Dossier, .zip ou .json à afficher">
+      <button class="btn primary">Afficher</button>
+    </form>
+    ${localOpenHtml}`);
+  $('#go').addEventListener('submit', e => {
+    e.preventDefault();
+    const v = $('#go-path').value.trim();
+    if (v) location.search = '?c=' + encodeURIComponent(v).replace(/%2F/gi, '/');
+  });
+  $('#go-path').focus();
+}
+function showError(req, url, kind, err) {
+  const local = location.protocol === 'file:';
+  const via = req.from === 'file'
+    ? 'par la constante <code>COMPOSITION_PATH</code> de cette page (videz-la pour utiliser l\'adresse)'
+    : 'par le paramètre <code>?c=</code> de l\'adresse';
+  let tips = '';
+  if (url && kind === 'dir') {
+    const dir = new URL('.', url);
+    const folder = safeDecode(dir.pathname.replace(/\/$/, '').split('/').pop() || 'composition');
+    tips = `
+      <p>Le lecteur cherche <code>${local ? 'composition.js' : 'composition.json'}</code> dans le dossier <code>${esc(safeDecode(dir.href))}</code>,
+        qui doit contenir le <b>contenu décompressé</b> du pack exporté par l'éditeur :</p>
+      <pre class="tree">${esc(folder)}/\n├─ composition.json\n├─ composition.js\n└─ images/</pre>
+      <ul><li>Si vous y voyez un fichier <code>.zip</code>, décompressez-le à cet endroit (clic droit, puis « Extraire tout »)${local ? '' : ', ou indiquez directement le .zip dans l\'adresse'}.</li>
+      <li>Sur un serveur, vérifiez les majuscules et minuscules du nom du dossier.</li></ul>`;
+  } else if (url && local) {
+    tips = `
+      <p>Ouverte en double-clic (sans serveur web), la page ne peut pas lire un fichier ${kind === 'zip' ? '.zip' : '.json'}. Au choix :</p>
+      <ul><li>indiquez le <b>dossier décompressé</b> du pack, qui contient composition.js : <code>?c=mon-dossier/</code> ;</li>
+      <li>publiez sur un serveur web (GitHub Pages, hébergement de l'établissement…), où les trois formes fonctionnent ;</li>
+      <li>ou choisissez le fichier ci-dessous pour un aperçu.</li></ul>`;
+  } else if (url) {
+    tips = `<p>Fichier recherché : <code>${esc(safeDecode(url.href))}</code></p>
+      <ul><li>Vérifiez que le fichier est bien sur le serveur, avec exactement ce nom (majuscules et minuscules comprises).</li></ul>`;
+  }
+  showCard(`
+    <h2>La composition n'a pas pu être chargée</h2>
+    <p>Composition demandée : <code>${esc(req.path)}</code>, ${via}.</p>
+    ${tips}
+    ${localOpenHtml}
+    ${err ? `<p class="detail">Détail technique : ${esc(err.message || String(err))}.</p>` : ''}`);
+}
+
+/* ----- Aperçu local : .zip ou .json choisi ou déposé par l'utilisateur ----- */
+async function openLocal(file) {
+  const msg = $('#local-msg');
+  try {
+    let doc;
+    if (/\.zip$/i.test(file.name) || /zip/.test(file.type)) doc = await docFromZip(await file.arrayBuffer());
+    else doc = JSON.parse(await file.text());
+    if (!doc || !Array.isArray(doc.elements)) throw new Error('ce fichier n\'est pas une composition Infoboard');
+    baseUrl = new URL(location.href);
+    $('#error').hidden = true;
+    build(doc);
+  } catch (err) {
+    if (msg) { msg.hidden = false; msg.textContent = 'Impossible d\'afficher ce fichier : ' + (err instanceof SyntaxError ? 'JSON illisible' : err.message) + '.'; }
+  }
+}
+$('#pick').addEventListener('change', e => { if (e.target.files[0]) openLocal(e.target.files[0]); e.target.value = ''; });
+const canDropLocal = e => !items.length && !$('#error').hidden && e.dataTransfer && [...e.dataTransfer.types].includes('Files');
+document.addEventListener('dragover', e => { if (!canDropLocal(e)) return; e.preventDefault(); $('#error').classList.add('drop-on'); });
+document.addEventListener('dragleave', e => { if (!e.relatedTarget) $('#error').classList.remove('drop-on'); });
+document.addEventListener('drop', e => {
+  if (!canDropLocal(e)) return;
+  e.preventDefault();
+  $('#error').classList.remove('drop-on');
+  if (e.dataTransfer.files[0]) openLocal(e.dataTransfer.files[0]);
+});
+
+/* =========================================================================
+   Construction (lecture seule, contenu assaini)
+   ========================================================================= */
+function resolveUrl(raw, { image = false } = {}) {
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  const s = raw.trim();
+  if (image && /^data:image\//i.test(s)) return s;
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(s)) { const z = fromZip(s); if (z) return z; }   // fichier présent dans l'archive
+  try {
+    const u = new URL(s, baseUrl || location.href);
+    if (u.protocol === 'http:' || u.protocol === 'https:') return u.href;
+    if (!image && u.protocol === 'mailto:') return u.href;
+    if (u.protocol === 'file:' && location.protocol === 'file:') return u.href;
+  } catch { /* adresse invalide */ }
+  return null;
+}
+const isFileUrl = url => FILE_EXT.test(String(url || '').split(/[?#]/)[0]);
+function prettyUrl(url) {
+  if (/^https?:\/\//i.test(url)) {
+    try { const u = new URL(url); return (u.hostname.replace(/^www\./, '') + safeDecode(u.pathname)).replace(/\/$/, ''); } catch { /* brut */ }
+  }
+  return url.replace(/^mailto:/i, '');
+}
+const fileName = url => safeDecode((String(url).split(/[?#]/)[0].match(/([^/]+)\/?$/) || [, url])[1]);
+const hostOf = url => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; } };
+function linkLabels(raw, title) {
+  const url = String(raw || ''), web = /^https?:\/\//i.test(url), file = isFileUrl(url);
+  title = String(title || '').trim();
+  if (title) return { t: title, u: web ? (file ? fileName(url) : hostOf(url)) : url.replace(/^mailto:/i, '') };
+  if (file) return { t: fileName(url), u: web ? hostOf(url) : '' };
+  return { t: prettyUrl(url), u: '' };
+}
+
+function build(doc) {
+  const title = String(doc.title || '').trim();
+  document.title = (title || 'Composition') + ' — Infoboard';
+  if (title) { $('#doc-title').textContent = title; $('#titlebar').hidden = false; }
+  if (/^#[0-9a-f]{3,8}$/i.test(doc.background || '')) document.documentElement.style.setProperty('--board', doc.background);
+
+  const frag = document.createDocumentFragment();
+  for (const it of doc.elements) {
+    if (!it || typeof it !== 'object') continue;
+    const x = num(it.x), y = num(it.y);
+    let n;
+    if (it.type === 'image') {
+      const src = resolveUrl(it.src, { image: true });
+      n = document.createElement('div');
+      n.className = 'el el-image';
+      const img = new Image();
+      img.alt = String(it.alt || '');
+      img.draggable = false;
+      img.decoding = 'async';
+      img.onload = () => n.classList.add('ok');
+      img.onerror = () => n.classList.add('missing');
+      if (src) img.src = src; else n.classList.add('missing');
+      n.appendChild(img);
+      n.tabIndex = 0;
+      n.setAttribute('role', 'button');
+      n.setAttribute('aria-label', 'Agrandir l\'infographie' + (it.alt ? ' : ' + it.alt : ''));
+      n.style.width = Math.max(1, num(it.w, 400)) + 'px';
+      n.style.height = Math.max(1, num(it.h, 300)) + 'px';
+      items.push({ type: 'image', x, y, w: Math.max(1, num(it.w, 400)), h: Math.max(1, num(it.h, 300)), node: n });
+    } else if (it.type === 'text') {
+      n = document.createElement('div');
+      n.className = 'el el-text';
+      n.textContent = String(it.text ?? '');
+      n.style.fontSize = clamp(num(it.fontSize, 24), 1, 2000) + 'px';
+      n.style.color = /^#[0-9a-f]{3,8}$/i.test(it.color || '') ? it.color : 'var(--ink)';
+      n.style.fontWeight = it.bold ? '700' : '400';
+      items.push({ type: 'text', x, y, w: num(it.w, 100), h: num(it.h, 30), node: n });
+    } else if (it.type === 'link') {
+      const href = resolveUrl(it.url);
+      if (!href) continue;
+      const { t, u } = linkLabels(String(it.url), it.title);
+      const file = isFileUrl(it.url);
+      n = document.createElement('a');
+      n.className = 'el el-link';
+      n.href = href;
+      n.target = '_blank';
+      n.rel = 'noopener noreferrer';
+      if (file) {
+        if (href.startsWith('blob:')) n.setAttribute('download', fileName(it.url));
+        else try { const h = new URL(href); if (h.origin === location.origin || h.protocol === 'file:') n.setAttribute('download', ''); } catch { /* */ }
+      }
+      n.innerHTML = `<span class="ico">${icon(file ? 'download' : 'external')}</span><span class="txt"><span class="t"></span><span class="u"></span></span>`;
+      n.querySelector('.t').textContent = t;
+      const ue = n.querySelector('.u');
+      ue.textContent = u; ue.hidden = !u;
+      n.style.fontSize = clamp(num(it.fontSize, 18), 1, 2000) + 'px';
+      n.draggable = false;
+      items.push({ type: 'link', x, y, w: num(it.w, 200), h: num(it.h, 50), node: n });
+    } else continue;
+    n.style.left = x + 'px';
+    n.style.top = y + 'px';
+    n.dataset.i = items.length - 1;
+    frag.appendChild(n);
+  }
+  world.appendChild(frag);
+  // Mesure réelle des textes et des liens
+  for (const it of items) if (it.type !== 'image') { it.w = it.node.offsetWidth; it.h = it.node.offsetHeight; }
+  order = readingOrder(items.filter(i => i.type === 'image'));
+  order.forEach((it, i) => { it.order = i; });
+
+  $('#loader').hidden = true;
+  $('#zoombar').hidden = false;
+  if (document.fullscreenEnabled) $('#fs-btn').hidden = false;
+  if (!items.length) {
+    const box = $('#error');
+    box.innerHTML = '<h2>Cette composition est vide</h2><p>Ajoutez des éléments dans l\'éditeur, puis exportez à nouveau le pack.</p>';
+    box.hidden = false;
+    return;
+  }
+  fitAll(false);
+  requestAnimationFrame(() => world.classList.add('ready'));
+  if (order.length) showHint();
+}
+
+/* Ordre de lecture : par rangées (de haut en bas), puis de gauche à droite */
+function readingOrder(list) {
+  const rows = [];
+  for (const it of [...list].sort((a, b) => a.y - b.y)) {
+    const cy = it.y + it.h / 2;
+    const row = rows.find(r => cy >= r.top && cy <= r.bottom);
+    if (row) row.items.push(it); else rows.push({ top: it.y, bottom: it.y + it.h, items: [it] });
+  }
+  return rows.sort((a, b) => a.top - b.top).flatMap(r => r.items.sort((a, b) => a.x - b.x));
+}
+
+/* =========================================================================
+   Caméra
+   ========================================================================= */
+const bounds = it => ({ x: it.x, y: it.y, w: it.w, h: it.h });
+function union(list) {
+  if (!list.length) return null;
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  for (const b of list) { x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y); x2 = Math.max(x2, b.x + b.w); y2 = Math.max(y2, b.y + b.h); }
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+}
+const viewCenter = () => ({ x: innerWidth / 2, y: innerHeight / 2 });
+function insets(tight) {
+  const small = innerWidth < 560;
+  if (tight) return small ? { top: 66, right: 8, bottom: 122, left: 8 } : { top: 72, right: 16, bottom: 70, left: 16 };
+  return small ? { top: 66, right: 12, bottom: 70, left: 12 } : { top: 78, right: 32, bottom: 74, left: 32 };
+}
+let movingTimer = null;
+function applyCamera() {
+  world.style.transform = `translate(${cam.x}px,${cam.y}px) scale(${cam.s})`;
+  world.style.setProperty('--s', cam.s);
+  world.classList.add('moving');
+  clearTimeout(movingTimer);
+  movingTimer = setTimeout(() => world.classList.remove('moving'), 180);
+  $('#zoom-label').textContent = Math.round(cam.s * 100) + ' %';
+}
+function userCamera() { autoFit = false; }
+function zoomAt(px, py, f) {
+  stopAnim(); userCamera();
+  const s = clamp(cam.s * f, MIN_S, MAX_S), k = s / cam.s;
+  cam.x = px - (px - cam.x) * k; cam.y = py - (py - cam.y) * k; cam.s = s;
+  applyCamera();
+}
+function zoomBy(f) {
+  userCamera();
+  const c = viewCenter(), s = clamp(cam.s * f, MIN_S, MAX_S), k = s / cam.s;
+  animateTo({ s, x: c.x - (c.x - cam.x) * k, y: c.y - (c.y - cam.y) * k });
+}
+function zoom100() {
+  userCamera();
+  const c = viewCenter(), wx = (c.x - cam.x) / cam.s, wy = (c.y - cam.y) / cam.s;
+  animateTo({ s: 1, x: c.x - wx, y: c.y - wy });
+}
+function fitBounds(b, opt = {}) {
+  const ins = insets(opt.tight), pad = opt.pad ?? 40;
+  const vw = Math.max(60, innerWidth - ins.left - ins.right - pad * 2);
+  const vh = Math.max(60, innerHeight - ins.top - ins.bottom - pad * 2);
+  const s = clamp(Math.min(vw / Math.max(b.w, 1), vh / Math.max(b.h, 1)), MIN_S, opt.maxScale ?? 1.25);
+  const cx = ins.left + pad + vw / 2, cy = ins.top + pad + vh / 2;
+  animateTo({ s, x: cx - (b.x + b.w / 2) * s, y: cy - (b.y + b.h / 2) * s }, opt.animate !== false);
+}
+function fitAll(animate = true) {
+  const b = union(items.map(bounds));
+  if (b) fitBounds(b, { animate });
+  autoFit = true;
+}
+let anim = 0;
+function stopAnim() { if (anim) cancelAnimationFrame(anim); anim = 0; }
+function animateTo(t, animate = true) {
+  stopAnim();
+  if (!animate || reducedMotion()) { Object.assign(cam, t); applyCamera(); return; }
+  const from = { ...cam }, c = viewCenter(), t0 = performance.now(), D = 420;
+  const wf = { x: (c.x - from.x) / from.s, y: (c.y - from.y) / from.s };
+  const wt = { x: (c.x - t.x) / t.s, y: (c.y - t.y) / t.s };
+  const step = now => {
+    const p = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - p, 3);
+    const s = Math.exp(Math.log(from.s) + (Math.log(t.s) - Math.log(from.s)) * e);
+    cam.s = s;
+    cam.x = c.x - (wf.x + (wt.x - wf.x) * e) * s;
+    cam.y = c.y - (wf.y + (wt.y - wf.y) * e) * s;
+    if (p >= 1) { Object.assign(cam, t); anim = 0; } else anim = requestAnimationFrame(step);
+    applyCamera();
+  };
+  anim = requestAnimationFrame(step);
+}
+
+/* =========================================================================
+   Mode « infographie agrandie » et navigation
+   ========================================================================= */
+function focusImage(i, animate = true) {
+  if (!order.length) return;
+  focusIdx = clamp(i, 0, order.length - 1);
+  order.forEach((it, k) => it.node.classList.toggle('focused', k === focusIdx));
+  fitBounds(bounds(order[focusIdx]), { maxScale: 4, pad: 20, tight: true, animate });
+  autoFit = true;
+  updateNav();
+}
+function overview() {
+  focusIdx = -1;
+  order.forEach(it => it.node.classList.remove('focused'));
+  fitAll();
+  updateNav();
+}
+function updateNav() {
+  const on = focusIdx >= 0;
+  $('#nav').hidden = !on;
+  if (!on) return;
+  $('#nav-pos').textContent = `${focusIdx + 1} / ${order.length}`;
+  $('[data-action=prev]').disabled = focusIdx === 0;
+  $('[data-action=next]').disabled = focusIdx === order.length - 1;
+}
+function step(d) {
+  if (!order.length) return;
+  if (focusIdx < 0) focusImage(d > 0 ? 0 : order.length - 1);
+  else focusImage(focusIdx + d);
+}
+function showHint() {
+  let seen = false;
+  try { seen = sessionStorage.getItem('infoboard-hint') === '1'; sessionStorage.setItem('infoboard-hint', '1'); } catch { /* stockage indisponible */ }
+  if (seen) return;
+  const h = $('#hint');
+  h.textContent = coarse ? 'Touchez une infographie pour l\'agrandir' : 'Cliquez sur une infographie pour l\'agrandir, puis ← → pour passer à la suivante';
+  h.hidden = false;
+  setTimeout(() => h.classList.add('out'), 4200);
+  setTimeout(() => { h.hidden = true; }, 4800);
+}
+function hideHint() { const h = $('#hint'); h.classList.add('out'); setTimeout(() => { h.hidden = true; }, 400); }
+
+/* Amène un élément à l'écran quand il reçoit le focus clavier */
+world.addEventListener('focusin', e => {
+  const n = e.target.closest('.el');
+  if (!n) return;
+  const it = items[+n.dataset.i], ins = insets();
+  const sx = it.x * cam.s + cam.x, sy = it.y * cam.s + cam.y, sw = it.w * cam.s, sh = it.h * cam.s;
+  if (sx < ins.left || sy < ins.top || sx + sw > innerWidth - ins.right || sy + sh > innerHeight - ins.bottom) {
+    const c = viewCenter();
+    animateTo({ s: cam.s, x: c.x - (it.x + it.w / 2) * cam.s, y: c.y - (it.y + it.h / 2) * cam.s });
+  }
+});
+world.addEventListener('keydown', e => {
+  const n = e.target.closest('.el-image');
+  if (n && (e.key === 'Enter' || e.key === ' ')) {
+    e.preventDefault();
+    const it = items[+n.dataset.i];
+    if (focusIdx === it.order) overview(); else focusImage(it.order);
+  }
+});
+
+/* =========================================================================
+   Pointeur : déplacer, pincer, cliquer
+   ========================================================================= */
+const pointers = new Map();
+let g = null, suppressClick = false;
+
+viewport.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  suppressClick = false;
+  hideTip();
+  if (pointers.size === 2) { startPinch(); return; }
+  if (pointers.size > 2) return;
+  stopAnim();
+  const target = e.target.closest('.el');
+  if (e.button === 1 && !(target && target.tagName === 'A')) e.preventDefault();
+  g = { type: 'pan', sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y, moved: false, target, button: e.button };
+});
+window.addEventListener('pointermove', e => {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (!g) return;
+  if (g.type === 'pinch') { updatePinch(); return; }
+  const dx = e.clientX - g.sx, dy = e.clientY - g.sy;
+  if (!g.moved) {
+    if (Math.hypot(dx, dy) < 5) return;
+    g.moved = true;
+    userCamera();
+    try { viewport.setPointerCapture(e.pointerId); } catch { /* */ }
+    viewport.classList.add('grabbing');
+  }
+  cam.x = g.cx + dx; cam.y = g.cy + dy;
+  applyCamera();
+});
+function endPointer(e) {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.delete(e.pointerId);
+  if (!g) return;
+  if (g.type === 'pinch') { if (pointers.size < 2) { g = null; suppressClick = true; } return; }
+  viewport.classList.remove('grabbing');
+  if (g.moved) suppressClick = true;
+  else if (e.type === 'pointerup' && g.button === 0) {
+    const t = g.target;
+    if (t && t.classList.contains('el-image')) {
+      const it = items[+t.dataset.i];
+      hideHint();
+      if (focusIdx === it.order) overview(); else focusImage(it.order);
+    } else if (!t && focusIdx >= 0) overview();
+  }
+  g = null;
+}
+window.addEventListener('pointerup', endPointer);
+window.addEventListener('pointercancel', endPointer);
+document.addEventListener('click', e => {
+  if (suppressClick) { e.preventDefault(); e.stopPropagation(); suppressClick = false; }
+}, true);
+viewport.addEventListener('dragstart', e => e.preventDefault());
+
+function startPinch() {
+  const [a, b] = [...pointers.values()];
+  userCamera();
+  g = { type: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, m0: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, cam0: { ...cam } };
+}
+function updatePinch() {
+  const [a, b] = [...pointers.values()];
+  const d = Math.hypot(a.x - b.x, a.y - b.y), m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  const s = clamp(g.cam0.s * d / g.d0, MIN_S, MAX_S);
+  const wx = (g.m0.x - g.cam0.x) / g.cam0.s, wy = (g.m0.y - g.cam0.y) / g.cam0.s;
+  cam.s = s; cam.x = m.x - wx * s; cam.y = m.y - wy * s;
+  applyCamera();
+}
+
+viewport.addEventListener('wheel', e => {
+  e.preventDefault();
+  let dy = e.deltaY, dx = e.deltaX;
+  if (e.deltaMode === 1) { dy *= 16; dx *= 16; } else if (e.deltaMode === 2) { dy *= 400; dx *= 400; }
+  if (!e.ctrlKey && Math.abs(dx) > Math.abs(dy)) { stopAnim(); userCamera(); cam.x -= dx; applyCamera(); return; }
+  zoomAt(e.clientX, e.clientY, Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0015)));
+}, { passive: false });
+document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+let gScale = 1;
+document.addEventListener('gesturestart', e => { e.preventDefault(); gScale = 1; });
+document.addEventListener('gesturechange', e => { e.preventDefault(); zoomAt(e.clientX, e.clientY, e.scale / gScale); gScale = e.scale; });
+
+/* =========================================================================
+   Clavier, boutons, plein écran
+   ========================================================================= */
+document.addEventListener('keydown', e => {
+  if (!items.length) return;
+  const k = e.key;
+  if (e.ctrlKey || e.metaKey) {
+    if (k === '+' || k === '=') { e.preventDefault(); zoomBy(1.25); }
+    else if (k === '-') { e.preventDefault(); zoomBy(0.8); }
+    else if (k === '0' || e.code === 'Digit0' || e.code === 'Numpad0') { e.preventDefault(); zoom100(); }
+    return;
+  }
+  if (e.target.closest && e.target.closest('button') && (k === 'Enter' || k === ' ')) return;
+  switch (k) {
+    case 'ArrowRight': case 'PageDown': e.preventDefault(); hideHint(); step(1); break;
+    case 'ArrowLeft': case 'PageUp': e.preventDefault(); hideHint(); step(-1); break;
+    case 'Home': if (order.length) { e.preventDefault(); focusImage(0); } break;
+    case 'End': if (order.length) { e.preventDefault(); focusImage(order.length - 1); } break;
+    case 'ArrowUp': e.preventDefault(); userCamera(); animateTo({ ...cam, y: cam.y + 120 }); break;
+    case 'ArrowDown': e.preventDefault(); userCamera(); animateTo({ ...cam, y: cam.y - 120 }); break;
+    case 'Escape': if (focusIdx >= 0) overview(); break;
+    case 'f': case 'F': overview(); break;
+    case '+': case '=': zoomBy(1.25); break;
+    case '-': case '_': zoomBy(0.8); break;
+    default: if (e.code === 'Digit0' || e.code === 'Numpad0') zoom100();
+  }
+});
+
+function toggleFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(() => {});
+}
+document.addEventListener('fullscreenchange', () => {
+  const on = !!document.fullscreenElement, b = $('#fs-btn');
+  b.innerHTML = icon(on ? 'shrink' : 'expand');
+  b.dataset.tip = on ? 'Quitter le plein écran' : 'Plein écran';
+  b.setAttribute('aria-label', b.dataset.tip);
+});
+
+const actions = {
+  'zoom-in': () => zoomBy(1.25), 'zoom-out': () => zoomBy(0.8), 'zoom-100': zoom100,
+  fit: overview, prev: () => step(-1), next: () => step(1), fullscreen: toggleFullscreen
+};
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-action]');
+  if (!b) return;
+  if (e.detail > 0) b.blur();
+  actions[b.dataset.action]?.();
+});
+
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (!autoFit || !items.length) return;
+    if (focusIdx >= 0) focusImage(focusIdx, false); else fitAll(false);
+  }, 120);
+});
+
+/* Infobulles */
+const tip = $('#tip');
+let tipTimer = null;
+function hideTip() { clearTimeout(tipTimer); tip.classList.remove('on'); }
+document.addEventListener('pointerover', e => {
+  const t = e.target.closest('[data-tip]');
+  if (!t || e.pointerType !== 'mouse') return;
+  clearTimeout(tipTimer);
+  tipTimer = setTimeout(() => {
+    tip.innerHTML = esc(t.dataset.tip) + (t.dataset.key ? `<kbd>${esc(t.dataset.key)}</kbd>` : '');
+    tip.classList.add('on');
+    const r = t.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = clamp(r.left + r.width / 2 - w / 2, 6, innerWidth - w - 6) + 'px';
+    tip.style.top = clamp(r.top - h - 8, 6, innerHeight - h - 6) + 'px';
+  }, tip.classList.contains('on') ? 60 : 420);
+});
+document.addEventListener('pointerout', e => { const t = e.target.closest('[data-tip]'); if (t && !t.contains(e.relatedTarget)) hideTip(); });
+
+// Anneau de focus seulement pour la navigation au clavier
+document.addEventListener('keydown', e => { if (e.key === 'Tab') document.body.classList.add('kbd'); }, true);
+document.addEventListener('pointerdown', () => document.body.classList.remove('kbd'), true);
+
+load();
+})();
+</script>
+</body>
+</html>
