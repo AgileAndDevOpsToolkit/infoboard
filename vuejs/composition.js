@@ -4,7 +4,7 @@ window.INFOBOARD_COMPOSITION = {
   "version": 1,
   "title": "",
   "background": "#ffffff",
-  "exportedAt": "2026-11-26T00:34:18.169Z",
+  "exportedAt": "2026-11-26T13:41:44.792Z",
   "bounds": {
     "x": -3796.6,
     "y": -1355.5,
@@ -65,7 +65,7 @@ window.INFOBOARD_COMPOSITION = {
     {
       "id": "iuyk3sos2gs",
       "type": "image",
-      "x": -3796.6,
+      "x": -2946.6,
       "y": 108.8,
       "w": 800,
       "h": 450,
@@ -174,6 +174,16 @@ window.INFOBOARD_COMPOSITION = {
       "fontSize": 84,
       "color": "#1c2230",
       "bold": true
+    },
+    {
+      "id": "ilp99koulkv",
+      "type": "image",
+      "x": -3793.1,
+      "y": 147.5,
+      "w": 800,
+      "h": 450,
+      "src": "images/resume-directives-vue-js.png",
+      "alt": "Résumé Directives Vue.js"
     }
   ]
 };
