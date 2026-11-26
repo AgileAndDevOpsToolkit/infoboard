@@ -1,0 +1,179 @@
+/* Composition Infoboard (lecture sans serveur web) */
+window.INFOBOARD_COMPOSITION = {
+  "format": "infoboard",
+  "version": 1,
+  "title": "",
+  "background": "#ffffff",
+  "exportedAt": "2026-11-26T00:34:18.169Z",
+  "bounds": {
+    "x": -3796.6,
+    "y": -1355.5,
+    "w": 1893,
+    "h": 3880.7
+  },
+  "elements": [
+    {
+      "id": "iuubmd2qbu3",
+      "type": "image",
+      "x": -3796.6,
+      "y": 784.3,
+      "w": 800,
+      "h": 450,
+      "src": "images/les-evenements-en-vuejs.png",
+      "alt": "les evenements en vuejs"
+    },
+    {
+      "id": "iuvj6yrne6p",
+      "type": "image",
+      "x": -3793.1,
+      "y": 2075.2,
+      "w": 800,
+      "h": 450,
+      "src": "images/infographie-json.png",
+      "alt": "infographie json"
+    },
+    {
+      "id": "iuw4ht5vzu8",
+      "type": "image",
+      "x": -3796.6,
+      "y": 1425.7,
+      "w": 800,
+      "h": 451,
+      "src": "images/fleche-violette-vers-package-lock-json-2.png",
+      "alt": "fleche violette vers package lock json 2"
+    },
+    {
+      "id": "iuxalkl7srl",
+      "type": "image",
+      "x": -2947.1,
+      "y": 784.3,
+      "w": 800,
+      "h": 450,
+      "src": "images/actions-et-evenements-dans-vue-js.png",
+      "alt": "actions et evenements dans vue js"
+    },
+    {
+      "id": "iuy4kizxxye",
+      "type": "image",
+      "x": -3796.6,
+      "y": -552.7,
+      "w": 800,
+      "h": 450,
+      "src": "images/le-dom-html-structure-et-interactivite.png",
+      "alt": "le dom html structure et interactivite"
+    },
+    {
+      "id": "iuyk3sos2gs",
+      "type": "image",
+      "x": -3796.6,
+      "y": 108.8,
+      "w": 800,
+      "h": 450,
+      "src": "images/directive-v-for-du-code-au-dom.png",
+      "alt": "directive v for du code au dom"
+    },
+    {
+      "id": "iuzui3fl8gr",
+      "type": "image",
+      "x": -2946.6,
+      "y": -1244.5,
+      "w": 800,
+      "h": 450,
+      "src": "images/chronologie-des-frameworks-front-end.png",
+      "alt": "chronologie des frameworks front end"
+    },
+    {
+      "id": "iuzui37kyja",
+      "type": "image",
+      "x": -3796.6,
+      "y": -1244.5,
+      "w": 800,
+      "h": 450,
+      "src": "images/frise-chronologique-les-debuts-du-web.png",
+      "alt": "frise chronologique les debuts du web"
+    },
+    {
+      "id": "tv0f1526j7d",
+      "type": "text",
+      "x": -3796.6,
+      "y": -1355.5,
+      "w": 850,
+      "h": 111,
+      "text": "Histoire du dev front",
+      "fontSize": 84,
+      "color": "#1c2230",
+      "bold": true
+    },
+    {
+      "id": "tv1ek8n7dzy",
+      "type": "text",
+      "x": -3796.6,
+      "y": -663.7,
+      "w": 1893,
+      "h": 111,
+      "text": "Quelques principes fondamentaux du dev front",
+      "fontSize": 84,
+      "color": "#1c2230",
+      "bold": true
+    },
+    {
+      "id": "lv68l7dycl5",
+      "type": "link",
+      "x": -2742.1,
+      "y": -437.8,
+      "w": 390,
+      "h": 173,
+      "url": "https://google.fr",
+      "title": "Google",
+      "fontSize": 49
+    },
+    {
+      "id": "tt94onop724",
+      "type": "text",
+      "x": -3796.6,
+      "y": -2.2,
+      "w": 807,
+      "h": 111,
+      "text": "Les directives Vue.js",
+      "fontSize": 84,
+      "color": "#1c2230",
+      "bold": true
+    },
+    {
+      "id": "ttfw5jftiya",
+      "type": "text",
+      "x": -3796.6,
+      "y": 673.3,
+      "w": 1279,
+      "h": 111,
+      "text": "Événements et actions en Vue.js",
+      "fontSize": 84,
+      "color": "#1c2230",
+      "bold": true
+    },
+    {
+      "id": "ttjtlfmttf6",
+      "type": "text",
+      "x": -3796.6,
+      "y": 1293.4,
+      "w": 322,
+      "h": 111,
+      "text": "Node.js",
+      "fontSize": 84,
+      "color": "#1c2230",
+      "bold": true
+    },
+    {
+      "id": "ttkcp05avp1",
+      "type": "text",
+      "x": -3796.6,
+      "y": 1964.2,
+      "w": 366,
+      "h": 111,
+      "text": "Calls API",
+      "fontSize": 84,
+      "color": "#1c2230",
+      "bold": true
+    }
+  ]
+};
