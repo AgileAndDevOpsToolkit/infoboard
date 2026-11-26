@@ -266,7 +266,8 @@ kbd{display:inline-block;min-width:22px;padding:1px 6px;margin-left:3px;border:1
 
 <div class="panel actions">
   <button class="btn" data-action="open" data-tip="Ouvrir un .zip ou un .json" data-key="Ctrl O" data-tip-pos="bottom"><span data-icon="open"></span><span class="lbl">Ouvrir</span></button>
-  <button class="btn primary" data-action="export" data-tip="Exporter la composition" data-key="Ctrl S" data-tip-pos="bottom"><span data-icon="download"></span><span class="lbl">Exporter</span></button>
+  <button class="btn primary" id="btn-save" data-action="save" data-tip="Enregistrer dans le dossier de la composition" data-key="Ctrl S" data-tip-pos="bottom" hidden><span data-icon="save"></span><span class="lbl">Enregistrer</span></button>
+  <button class="btn primary" id="btn-export" data-action="export" data-tip="Exporter la composition" data-key="Ctrl S" data-tip-pos="bottom"><span data-icon="download"></span><span class="lbl">Exporter</span></button>
   <button class="ibtn" id="menu-btn" data-action="menu" aria-label="Plus d'options" aria-haspopup="true" data-tip="Plus d'options" data-tip-pos="bottom"><span data-icon="more"></span></button>
 </div>
 
@@ -407,6 +408,7 @@ const ICONS = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   minus: '<path d="M5 12h14"/>',
   fit: '<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7.5" y="7.5" width="9" height="9" rx="1.5"/>',
+  save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
   download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
   open: '<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>',
   trash: '<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/>',
@@ -770,7 +772,8 @@ function afterChange() {
   $('#btn-undo').disabled = !undoStack.length;
   $('#btn-redo').disabled = !redoStack.length;
   changedSinceExport = true;
-  scheduleSave();
+  if (folder) { folder.dirty = lastSnap !== folder.savedSnap; setFolderState(); }
+  else scheduleSave();
 }
 let commitTimer = null;
 const commitSoon = () => { clearTimeout(commitTimer); commitTimer = setTimeout(commit, 450); };
@@ -1240,7 +1243,7 @@ document.addEventListener('keydown', e => {
   if (mod) {
     const map = {
       z: () => (e.shiftKey ? redo() : undo()), y: redo, a: selectAll, d: duplicate, b: toggleBold,
-      s: () => openExport(), o: () => $('#file-open').click(),
+      s: () => (folder ? saveFolder() : openExport()), o: () => $('#file-open').click(),
       '+': () => zoomBy(1.25), '=': () => zoomBy(1.25), '-': () => zoomBy(0.8), '0': zoom100
     };
     const f = map[low] || (e.code === 'Digit0' || e.code === 'Numpad0' ? zoom100 : null);
@@ -1347,9 +1350,12 @@ function download(blob, name) {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 8000);
 }
+/* mode : 'zip' (images en fichiers), 'embed' (images en base64) ou 'folder' (enregistrement dans le dossier chargé :
+   seules les images nouvelles sont renvoyées, les autres gardent leur chemin d'origine) */
 async function buildDoc(mode) {
   measure();
   const files = [], used = new Set(), paths = new Map(), dataCache = new Map(), elements = [];
+  if (mode === 'folder') for (const el of S.elements) { const a = el.type === 'image' && assets.get(el.asset); if (a && a.folderPath) used.add(a.folderPath); }
   for (const el of S.elements) {
     const b = bounds(el);
     const base = { id: el.id, type: el.type, x: r2(el.x), y: r2(el.y), w: r2(b.w), h: r2(b.h) };
@@ -1361,7 +1367,8 @@ async function buildDoc(mode) {
       else if (mode === 'embed') {
         if (!dataCache.has(el.asset)) dataCache.set(el.asset, await blobToDataURL(a.blob));
         src = dataCache.get(el.asset);
-      } else {
+      } else if (mode === 'folder' && a.folderPath) src = a.folderPath;
+      else {
         if (!paths.has(el.asset)) {
           const ext = extOf(a.name) || Object.keys(MIME).find(k => MIME[k] === a.type) || 'png';
           const stem = slugify(a.name.replace(/\.[a-z0-9]+$/i, '')) || 'image';
@@ -1386,7 +1393,7 @@ async function buildDoc(mode) {
     bounds: bb ? { x: r2(bb.x), y: r2(bb.y), w: r2(bb.w), h: r2(bb.h) } : null,
     elements
   };
-  return { doc, files };
+  return { doc, files, paths };
 }
 async function exportZip() {
   if (!S.elements.length) { toast('Le board est vide : ajoutez d\'abord des éléments.', 'err'); return; }
@@ -1450,7 +1457,7 @@ function dataUrlToBlob(src) {
   }
   return new Blob([safeDecode(m[4])], { type });
 }
-function importDoc(doc, resolve) {
+function importDoc(doc, resolve, fromFolder = false) {
   let missing = 0;
   const cache = new Map(), out = [], seen = new Set();
   const keepId = (id, p) => { const v = typeof id === 'string' && /^[\w-]{1,64}$/.test(id) && !seen.has(id) ? id : uid(p); seen.add(v); return v; };
@@ -1462,8 +1469,11 @@ function importDoc(doc, resolve) {
       const blob = dataUrlToBlob(src);
       if (blob) id = addAsset(blob, (slugify(alt) || 'image') + '.' + (Object.keys(MIME).find(k => MIME[k] === blob.type) || 'png'));
     } else {
-      const bytes = resolve(src) || resolve(safeDecode(src));
-      if (bytes) id = addAsset(new Blob([bytes], { type: mimeFromName(src) }), safeDecode(src.split('/').pop()));
+      const direct = resolve(src), bytes = direct || resolve(safeDecode(src));
+      if (bytes) {
+        id = addAsset(new Blob([bytes], { type: mimeFromName(src) }), safeDecode(src.split('/').pop()));
+        if (fromFolder) assets.get(id).folderPath = direct ? src : safeDecode(src);
+      }
       else if (/^https?:\/\//i.test(src)) { id = uid('a'); assets.set(id, { src, name: fileName(src) || 'image' }); }
     }
     cache.set(src, id);
@@ -1556,10 +1566,10 @@ async function idb(mode, fn) {
     tx.onerror = tx.onabort = () => rej(tx.error);
   });
 }
-function setSaveState(s) {
+function setSaveState(s, text) {
   const el = $('#save-state');
   el.className = 'save-state ' + s;
-  el.querySelector('span').textContent = s === 'saving' ? 'Enregistrement…' : s === 'off' ? 'Sauvegarde auto indisponible : pensez à exporter' : 'Enregistré dans ce navigateur';
+  el.querySelector('span').textContent = text || (s === 'saving' ? 'Enregistrement…' : s === 'off' ? 'Sauvegarde auto indisponible : pensez à exporter' : 'Enregistré dans ce navigateur');
 }
 function scheduleSave() {
   if (saveBroken) return;
@@ -1593,8 +1603,78 @@ async function loadSaved() {
   }
 }
 window.addEventListener('beforeunload', e => {
-  if (saveBroken && changedSinceExport && S.elements.length) { e.preventDefault(); e.returnValue = ''; }
+  if ((saveBroken && changedSinceExport && S.elements.length) || (folder && folder.dirty)) { e.preventDefault(); e.returnValue = ''; }
 });
+
+/* =========================================================================
+   Dossier de composition (?c=dossier/) : ouverture et enregistrement via save.php
+   ========================================================================= */
+let folder = null; // { path, dirty, busy, savedSnap } quand l'éditeur a ouvert un dossier
+function setFolderState(err) {
+  const el = $('#save-state');
+  const name = folder.path.replace(/\/$/, '');
+  el.dataset.tip = `Les modifications sont écrites dans le dossier « ${name} » avec le bouton Enregistrer. Le navigateur ne garde pas de copie automatique.`;
+  if (err) setSaveState('off', err);
+  else if (folder.busy) setSaveState('saving', 'Enregistrement…');
+  else if (folder.dirty) setSaveState('saving', 'Modifications non enregistrées');
+  else setSaveState('saved', `Enregistré dans ${name}/`);
+}
+function folderParam() {
+  const q = (new URLSearchParams(location.search).get('c') || '').trim();
+  if (!q) return null;
+  if (/[\\:]/.test(q) || q.startsWith('//') || /\.(zip|json)(?=$|[?#])/i.test(q)) throw new Error('Le paramètre ?c= doit désigner un dossier de ce site (ex. ?c=vuejs/).');
+  if (location.protocol === 'file:') throw new Error('Ouvrir un dossier avec ?c= demande un serveur web PHP (page ouverte en double-clic).');
+  return q.replace(/\/?$/, '/');
+}
+async function loadFolder(path) {
+  const base = new URL(path, location.href);
+  const get = async rel => {
+    const r = await fetch(new URL(rel, base), { cache: 'no-cache' });
+    if (!r.ok) throw new Error(r.status === 404 ? `Introuvable : ${path}${rel} (404)` : `Le serveur répond ${r.status} pour ${path}${rel}`);
+    return r;
+  };
+  const doc = JSON.parse(await (await get('composition.json')).text());
+  if (!doc || !Array.isArray(doc.elements)) throw new Error('Ce fichier n\'est pas une composition Infoboard.');
+  const files = new Map();
+  await Promise.all(doc.elements.map(async it => {
+    if (!it || it.type !== 'image' || typeof it.src !== 'string' || /^(data:|[a-z][a-z0-9+.-]*:|\/\/)/i.test(it.src)) return;
+    try { files.set(it.src, new Uint8Array(await (await get(it.src)).arrayBuffer())); } catch { /* signalé comme image manquante */ }
+  }));
+  const { elements, missing } = importDoc(doc, src => files.get(src), true);
+  S.title = String(doc.title || '');
+  S.background = /^#[0-9a-f]{3,8}$/i.test(doc.background) ? doc.background : '#ffffff';
+  S.elements = elements;
+  return missing;
+}
+async function saveFolder() {
+  if (!folder || folder.busy) return;
+  finishEdit();
+  if (!S.elements.length && !(await confirmDlg('Enregistrer un board vide ?', `La composition du dossier « ${folder.path} » sera remplacée par un board vide.`, 'Enregistrer'))) return;
+  commit();
+  const snap = lastSnap;
+  folder.busy = true; setFolderState();
+  try {
+    const { doc, files, paths } = await buildDoc('folder');
+    const fd = new FormData();
+    fd.append('c', folder.path);
+    fd.append('composition', JSON.stringify(doc, null, 2));
+    for (const f of files) fd.append('images[]', new Blob([f.data]), f.name.slice(f.name.lastIndexOf('/') + 1));
+    const r = await fetch('save.php', { method: 'POST', body: fd, headers: { 'X-Infoboard': '1' } });
+    let res = null;
+    try { res = await r.json(); } catch { /* réponse non JSON : PHP absent ou en erreur */ }
+    if (!r.ok || !res || !res.ok) {
+      throw new Error(res && res.error || (r.status === 404 || r.status === 405 ? 'save.php est introuvable ou inactif : servez le site avec PHP.' : `Le serveur répond ${r.status}.`));
+    }
+    paths.forEach((p, id) => { assets.get(id).folderPath = p; });
+    folder.savedSnap = snap;
+    changedSinceExport = false;
+    folder.busy = false; folder.dirty = lastSnap !== snap; setFolderState();
+    toast(`Composition enregistrée dans ${folder.path}`);
+  } catch (err) {
+    folder.busy = false; setFolderState('Échec de l\'enregistrement : modifications non enregistrées');
+    toast(err.message || 'Enregistrement impossible.', 'err');
+  }
+}
 
 /* =========================================================================
    Interface : titre, fond, menu, dialogues, toasts, infobulles
@@ -1735,7 +1815,7 @@ function openHelp() {
     ['Copier / coller / dupliquer', K('Ctrl C') + ' ' + K('Ctrl V') + ' ' + K('Ctrl D')],
     ['Supprimer', K('Suppr')],
     ['Annuler / rétablir', K('Ctrl Z') + ' ' + K('Ctrl Maj Z')],
-    ['Exporter', K('Ctrl S')]
+    ...(folder ? [['Enregistrer dans le dossier', K('Ctrl S')]] : [['Exporter', K('Ctrl S')]])
   ];
   $('#keys').innerHTML = rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
   $('#dlg-help').showModal();
@@ -1747,6 +1827,7 @@ const actions = {
   open: () => $('#file-open').click(),
   'open-folder': () => { closeMenu(); $('#file-folder').click(); },
   export: openExport,
+  save: saveFolder,
   'export-zip': exportZip,
   'export-json': exportJSON,
   link: () => openLinkDialog(null),
@@ -1783,12 +1864,33 @@ window.addEventListener('resize', () => updateOverlay());
    ========================================================================= */
 document.querySelectorAll('[data-icon]').forEach(n => { n.outerHTML = icon(n.dataset.icon); });
 async function init() {
-  const restored = await loadSaved();
+  let missing = 0, restored = false;
+  try {
+    const path = folderParam();
+    if (path) {
+      folder = { path, dirty: false, busy: false, savedSnap: '' };
+      missing = await loadFolder(path);
+    }
+  } catch (err) {
+    toast(err instanceof SyntaxError ? `composition.json introuvable ou illisible dans ${folder ? folder.path : 'ce dossier'}` : err.message || 'Impossible de charger le dossier.', 'err');
+    folder = null;
+  }
+  if (!folder) restored = await loadSaved();
   syncTitle(); applyBackground(); render();
   lastSnap = snapshot();
   $('#btn-undo').disabled = $('#btn-redo').disabled = true;
-  if (!saveBroken) setSaveState('saved');
   fitAll(false);
+  if (folder) {
+    folder.savedSnap = lastSnap;
+    $('#btn-save').hidden = false;
+    $('#btn-export').classList.remove('primary');
+    $('#btn-export').dataset.key = '';
+    setFolderState();
+    if (missing) toast(`Dossier ouvert, mais ${missing} image(s) introuvable(s) : elles seraient retirées à l'enregistrement.`, 'err');
+    else toast(`Dossier ouvert : ${folder.path}`);
+    return;
+  }
+  if (!saveBroken) setSaveState('saved');
   if (restored) toast('Board restauré depuis votre dernière session');
 }
 init();

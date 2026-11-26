@@ -70,6 +70,24 @@ Le board est enregistré en continu **dans le navigateur** (IndexedDB) et restau
 
 Les identifiants des éléments et les noms des images sont conservés : ré-exporter sans rien modifier redonne le même `composition.json`, hors date d'export (les dimensions mesurées des textes peuvent varier légèrement d'un ordinateur à l'autre, selon les polices installées).
 
+### Modifier directement un dossier : `?c=`
+
+Comme le lecteur, l'éditeur accepte le paramètre `c` pour ouvrir un dossier de composition du site :
+
+```
+infoboard-editeur.html?c=vuejs/
+```
+
+Le bouton **Enregistrer** (`Ctrl S`) remplace alors l'export : il réécrit `composition.json` et `composition.js` dans ce dossier, ajoute les nouvelles images dans `images/` et supprime celles qui ne sont plus utilisées. Le reste du dossier (par exemple `fichiers/`) n'est jamais touché. La sauvegarde automatique du navigateur est désactivée dans ce mode, et le navigateur prévient avant de quitter la page s'il reste des modifications non enregistrées.
+
+L'écriture est assurée par [`save.php`](save.php), qui doit rester à côté de l'éditeur. Il faut donc servir le site avec PHP, en relevant les limites d'envoi pour les grosses images :
+
+```
+php -d upload_max_filesize=64M -d post_max_size=256M -S localhost:8000
+```
+
+Seul un **dossier déjà existant contenant `composition.json`** peut être enregistré ; `.zip` et `.json` ne sont pas acceptés dans ce mode. `save.php` est un outil de travail local : ne le publiez pas (ni sur GitHub Pages, qui n'exécute pas PHP, ni sur un serveur ouvert à d'autres personnes).
+
 ### Raccourcis clavier
 
 Sur Mac, `Ctrl` correspond à `⌘` et `Alt` à `⌥`.
